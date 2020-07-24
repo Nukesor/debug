@@ -41,6 +41,7 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+        if: matrix.os != 'windows-latest'
 
       - name: cargo clippy
         uses: actions-rs/cargo@v1
