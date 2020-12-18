@@ -1,0 +1,83 @@
+#!/bin/bash
+set -euo pipefail
+
+cd $(dirname $0)
+BIN_DIR=$(pwd)
+
+mkdir -p ./certs
+rm -f .certs/*
+cd ./certs
+
+## CA
+echo "Build ca-cert.pem"
+openssl genrsa 2048 > ca-key.pem
+openssl req \
+    -config $BIN_DIR/tls.conf \
+    -new \
+    -x509 \
+    -nodes \
+    -days 3650 \
+    -key ca-key.pem > ca-cert.pem
+
+## server
+echo "Build server request"
+openssl req \
+    -newkey rsa \
+    -keyout server-key-pkcs8.pem \
+    -config $BIN_DIR/tls.conf \
+    -out server-req.pem
+
+# convert key
+echo "Build server key"
+openssl rsa \
+    -in server-key-pkcs8.pem \
+    -out server-key.pem
+rm server-key-pkcs8.pem
+
+# create cert
+echo "Build server cert"
+openssl x509 \
+    -sha512 \
+    -days 3650 \
+    -extensions req_ext \
+    -extfile $BIN_DIR/tls.conf -req \
+    -in server-req.pem \
+    -CA ca-cert.pem \
+    -CAkey ca-key.pem \
+    -set_serial 01 \
+    -out server-cert.pem
+
+rm server-req.pem
+
+## client
+echo "Build client request"
+openssl req \
+    -newkey rsa \
+    -keyout client-key-pkcs8.pem \
+    -config $BIN_DIR/tls.conf \
+    -out client-req.pem
+
+# convert key
+echo "Build client key"
+openssl rsa \
+    -in client-key-pkcs8.pem \
+    -out client-key.pem
+rm client-key-pkcs8.pem
+
+# create cert
+echo "Build client cert"
+openssl x509 \
+    -sha512 \
+    -days 3650 \
+    -req \
+    -in client-req.pem \
+    -CA ca-cert.pem \
+    -CAkey ca-key.pem \
+    -set_serial 01 \
+    -out client-cert.pem
+
+rm client-req.pem
+
+## verify
+echo "Verify"
+openssl verify -CAfile ca-cert.pem server-cert.pem client-cert.pem
